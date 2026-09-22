@@ -68,6 +68,15 @@ app.prepare().then(async () => {
       res.status(500).json({ error: 'Database error' });
     }
   });
+  expressApp.get('/api/nonactive', async (req, res) => {
+    try {
+      const activeEvents = await db.all("SELECT * FROM tree_events WHERE status != 'active' ORDER BY created_at DESC");
+      res.status(200).json(activeEvents);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
 
   expressApp.all(/.*/, (req, res) => {
     return handle(req, res);
@@ -80,6 +89,7 @@ app.prepare().then(async () => {
     console.log('🟢 Dashboard Connected:', socket.id);
   });
 
+  
   server.listen(PORT, '0.0.0.0', (err) => {
     if (err) throw err;
     console.log(`🚀 ArborGuard Server ready on http://localhost:${PORT}`);
