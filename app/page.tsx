@@ -57,11 +57,17 @@ export default function Dashboard() {
     socket.on('new_alert', (newEvent) => {
       // ดันข้อมูลใหม่ขึ้นไปไว้บนสุดของอาร์เรย์
       setActiveAlerts(prev => [newEvent, ...prev]);
+      if(isshowactiveAlerts){
+        setcurrentShowAlerts(prev => [newEvent, ...prev])
+      }
     });
 
     // 4. รับคำสั่งเคลียร์สถานะ (ลบเหตุการณ์ของ Node ที่ส่งคำสั่งมาออก)
     socket.on('alert_cleared', (data) => {
       setActiveAlerts(prev => prev.filter(alert => alert.node_id !== data.node_id));
+       if(isshowactiveAlerts){
+        setcurrentShowAlerts(prev => prev.filter(alert => alert.node_id !== data.node_id))
+      }
     });
 
     // Cleanup เมื่อผู้ใช้ออกจากหน้าเว็บ
