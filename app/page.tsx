@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { io } from 'socket.io-client';
 
@@ -18,22 +18,31 @@ const socket = io({
 });
 
 export default function Dashboard() {
-  const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
-  const [currentShowAlerts, setcurrentShowAlerts] = useState<any[]>([]);
-  const [isshowactiveAlerts, setisshowactiveAlerts] = useState<boolean>(true);
+  const [currentAlerts, setCurrentalerts] = useState<any[]>([]);
+  const [activeAlerts, setActivealerts] = useState<any[]>([]);
+  const [nonactiveAlerts, setNonactivealerts] = useState<any[]>([]);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string>("");
   const [isConnected, setIsConnected] = useState(false);
   const [focusedLocation, setFocusedLocation] = useState<[number, number] | null>(null);
-
+  const [isshowcurrentAlerts, setisshowcurrentAlerts] = useState<boolean>(true);
+  const isshowcurrentAlertsRef = useRef(isshowcurrentAlerts);
   function showActive() {
-    setisshowactiveAlerts(true)
-    setcurrentShowAlerts(activeAlerts);
-
+    setisshowcurrentAlerts(true)
+    setCurrentalerts(activeAlerts)
+    setDevices(prev => prev);
+    isshowcurrentAlertsRef.current = true
   }
 
   function showOldEvent() {
+    setCurrentalerts([]);
+    setSelectedNodeId("");
+    setisshowcurrentAlerts(false);
+    isshowcurrentAlertsRef.current = false;
+
     fetch('/api/nonactive')
       .then(res => res.json())
-      .then(data => { setcurrentShowAlerts(data); setisshowactiveAlerts(false) })
+      .then(data => { setNonactivealerts(data); })
       .catch(err => console.error("Failed to fetch nonactive alerts:", err));
 
 
@@ -42,10 +51,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     // 1. โหลดข้อมูลที่ยัง Active อยู่จากฐานข้อมูลทันทีที่เปิดเว็บ
+    isshowcurrentAlertsRef.current = isshowcurrentAlerts;
     fetch('/api/active')
       .then(res => res.json())
-      .then(data => { setActiveAlerts(data); setcurrentShowAlerts(data) })
+      .then(data => { setActivealerts(data); setCurrentalerts(data); })
       .catch(err => console.error("Failed to fetch active alerts:", err));
+
+    fetch('/api/devices')
+      .then(res => res.json())
+      .then(data => { setDevices(data); })
+      .catch(err => console.error("Failed to fetch devices:", err));
 
     // 2. เชื่อมต่อ WebSocket
     socket.connect();
@@ -55,18 +70,33 @@ export default function Dashboard() {
 
     // 3. รับการแจ้งเตือนเหตุการณ์ใหม่
     socket.on('new_alert', (newEvent) => {
+
       // ดันข้อมูลใหม่ขึ้นไปไว้บนสุดของอาร์เรย์
-      setActiveAlerts(prev => [newEvent, ...prev]);
-      if(isshowactiveAlerts){
-        setcurrentShowAlerts(prev => [newEvent, ...prev])
+      if (isshowcurrentAlertsRef.current) {
+        setCurrentalerts(prev => [newEvent, ...prev]);
+      } else {
+        setActivealerts(prev => [newEvent, ...prev])
+
       }
+    });
+    socket.on('new_devices', (newEvent) => {
+      setDevices((prev) => {
+        // 🟢 ตรวจสอบจาก prev ซึ่งการันตีว่าเป็นข้อมูลล่าสุด ณ วินาทีนั้นจริงๆ
+        const isExist = prev.some((item) => item.node_id === newEvent.node_id);
+
+        if (isExist) {
+          return prev; // คืนค่าเดิม ไม่เปลี่ยนแปลง State
+        }
+        return [newEvent, ...prev]; // ถ้ายังไม่มี ค่อยดันขึ้นข้างบน
+      });
     });
 
     // 4. รับคำสั่งเคลียร์สถานะ (ลบเหตุการณ์ของ Node ที่ส่งคำสั่งมาออก)
     socket.on('alert_cleared', (data) => {
-      setActiveAlerts(prev => prev.filter(alert => alert.node_id !== data.node_id));
-       if(isshowactiveAlerts){
-        setcurrentShowAlerts(prev => prev.filter(alert => alert.node_id !== data.node_id))
+      if (isshowcurrentAlertsRef.current) {
+        setCurrentalerts(prev => prev.filter(alert => alert.node_id !== data.node_id));
+      } else {
+        setActivealerts(prev => prev.filter(alert => alert.node_id !== data.node_id))
       }
     });
 
@@ -94,7 +124,7 @@ export default function Dashboard() {
           </div>
           <div className="">
             <p className='font-bold'>ArborGuard At KU</p>
-            <p className="text-xs text-gray-300 font-bold">KAMPHAENG SAEN CAMPUS</p>
+            <p className="text-xs text-gray-300 font-bold">KAMPHAENG SAEN CAMPUS{isshowcurrentAlerts ? "sss" : ""}</p>
           </div>
         </div>
 
@@ -109,7 +139,7 @@ export default function Dashboard() {
           </span>
 
           <span className=" px-4 py-2 rounded-full  shadow-lg">
-            {isshowactiveAlerts ? "Active Alerts:" : "History Alerts:"} <span className="text-rose-400 font-bold ml-1">{currentShowAlerts.length}</span>
+            {isshowcurrentAlerts ? "Active Alerts:" : "History Alerts:"} <span className="text-rose-400 font-bold ml-1">{currentAlerts.length}</span>
           </span>
         </div>
 
@@ -126,26 +156,49 @@ export default function Dashboard() {
 
           {/* แผนที่ (ใช้พื้นที่ 2 ใน 3 ของจอใหญ่) */}
           <div className="lg:col-span-2 bg-slate-800 rounded-2xl p-2 min-h-[400px] lg:min-h-[600px] shadow-xl border border-slate-700/50">
-            <MapComponent events={currentShowAlerts} focusedLocation={focusedLocation} />
+            <MapComponent devices={devices} events={currentAlerts} focusedLocation={focusedLocation} />
           </div>
 
 
           {/* แถบแจ้งเตือนด้านข้าง (Event Feed) */}
           <div className="  p-6 flex flex-col h-[600px]  gap-5">
             <div className="flex flex-row justify-between items-center border-b border-gray-400 pb-5">
-              <p className={`text-center hover:cursor-pointer rounded-xl h-8 flex justify-center items-center w-full ${isshowactiveAlerts ? 'bg-gray-200' : ''} `} onClick={() => { showActive() }}>Active Alerting</p>
-              <p className={`text-center hover:cursor-pointer rounded-xl h-8 flex justify-center items-center w-full ${!isshowactiveAlerts ? 'bg-gray-200' : ''} `} onClick={() => { showOldEvent() }}>History Alerts</p>
+              <p className={`text-center hover:cursor-pointer rounded-xl h-8 flex justify-center items-center w-full ${isshowcurrentAlerts ? 'bg-gray-200' : ''} `} onClick={() => { showActive() }}>Active Alerting</p>
+              <p className={`text-center hover:cursor-pointer rounded-xl h-8 flex justify-center items-center w-full ${!isshowcurrentAlerts ? 'bg-gray-200' : ''} `} onClick={() => { showOldEvent() }}>History Alerts</p>
             </div>
 
             <div className="flex-1 overflow-y-auto  space-y-3 pr-2 scrollbar-thin scrollbar-thumb-slate-600">
-              {currentShowAlerts.length === 0 ? (
+              {!isshowcurrentAlerts && (
+                <select
+                  value={selectedNodeId}
+                  
+                  onChange={(e) => {
+                    setSelectedNodeId(e.target.value);
+                    setCurrentalerts(nonactiveAlerts.filter(item => item.node_id == e.target.value));
+                    const selectDevice = devices.find(item => item.node_id == e.target.value);
+                    if (selectDevice) {
+                      setFocusedLocation([selectDevice.lat, selectDevice.lng])
+                    }
+                  }
+                  }
+                  className="bg-slate-800 w-full h-10 text-white text-lg border border-slate-700 rounded-xl px-3 py-1.5 focus:outline-none focus:border-emerald-500 transition"
+                >
+                  <option value="">-- เลือกจุดเฝ้าระวังทั้งหมด --</option>
+                  {devices.map((item) => (
+                    <option key={item.node_id} value={item.node_id}>
+                      {item.node_id}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {currentAlerts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-slate-500 opacity-70">
                   <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                   <p className="text-lg">ระบบปกติ</p>
                   <p className="text-sm mt-1">เคลียร์ทุกเหตุการณ์เรียบร้อยแล้ว</p>
                 </div>
               ) : (
-                currentShowAlerts.map((alert) => (
+                currentAlerts.map((alert) => (
                   <div
                     key={alert.id}
                     onClick={() => setFocusedLocation([alert.lat, alert.lng])}
@@ -164,13 +217,13 @@ export default function Dashboard() {
                       <div className=" flex flex-row gap-2">
                         <p>alert at :</p>
                         <span>{new Date(alert.created_at).toLocaleDateString('th-TH')}</span>
-                      <span>{new Date(alert.created_at).toLocaleTimeString('th-TH')}</span>
+                        <span>{new Date(alert.created_at).toLocaleTimeString('th-TH')}</span>
                       </div>
-                      {alert.resolved_at!=null?<div className=" flex flex-row gap-2">
+                      {alert.resolved_at != null ? <div className=" flex flex-row gap-2">
                         <p>resolved at :</p>
                         <span>{new Date(alert.resolved_at).toLocaleDateString('th-TH')}</span>
-                      <span>{new Date(alert.resolved_at).toLocaleTimeString('th-TH')}</span>
-                      </div>:''}
+                        <span>{new Date(alert.resolved_at).toLocaleTimeString('th-TH')}</span>
+                      </div> : ''}
                     </div>
                   </div>
                 ))

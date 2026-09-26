@@ -1,16 +1,27 @@
 'use client';
-import { MapContainer, TileLayer, Marker, Popup,useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
 
 
 // ฟังก์ชันสร้างไอคอนหมุดแบบกำหนดเอง
-const createCustomIcon = (status: string, label: string,created_at:string,eventstatus:string) => {
+const createCustomIcon = (activeEvent:any) => {
   // กำหนดสีตามสถานะ (แดง = active, เขียว = resolved)
-  const bgColor = status === 'ต้นไม้ล้ม' ? 'bg-red-500' : 'bg-yellow-500';
-  const borderColor = status === 'ต้นไม้ล้ม' ? 'border-red-500' : 'border-yellow-500';
-  const ringColor = status === 'ต้นไม้ล้ม' ? 'ring-red-500' : 'ring-yellow-500';
+  let bgColor =     'bg-green-500';
+  let borderColor = 'border-green-500';
+  let ringColor = 'ring-green-500';
+  if(activeEvent==undefined){
+    bgColor =     'bg-green-500';
+    borderColor = 'border-green-500';
+    ringColor = 'ring-green-500';
+
+  }else{
+    bgColor = activeEvent.event_type === 'ต้นไม้ล้ม' ? 'bg-red-500' : 'bg-yellow-500';
+    borderColor = activeEvent.event_type === 'ต้นไม้ล้ม' ? 'border-red-500' : 'border-yellow-500';
+    ringColor = activeEvent.event_type === 'ต้นไม้ล้ม' ? 'ring-red-500' : 'ring-yellow-500';
+    
+  }
 
   return L.divIcon({
     className: 'custom-leaflet-icon',
@@ -18,18 +29,18 @@ const createCustomIcon = (status: string, label: string,created_at:string,events
     iconAnchor: [12, 24],
     popupAnchor: [0, -24],
     html: `
-      <div class="relative flex items-center justify-center">
+      <div class="relative flex items-center justify-center" ">
         <!-- ตัวอักษรข้างหมุด (Label) -->
-        ${eventstatus == 'active' ?`<span class="absolute left-8 px-5 py-2 rounded-full bg-white text-black text-xs  whitespace-nowrap shadow-sm border ${borderColor}">
+        ${activeEvent!=undefined &&activeEvent.status == 'active' ? `<span class="absolute left-8 px-5 py-2 rounded-full bg-white text-black text-xs  whitespace-nowrap shadow-sm border ${borderColor}">
        
-            <span>${new Date(created_at).toLocaleDateString('th-TH')}</span>
-                      <span>${new Date(created_at).toLocaleTimeString('th-TH')}</span>
-        </span>`:''}
+            <span>${new Date(activeEvent.created_at).toLocaleDateString('th-TH')}</span>
+                      <span>${new Date(activeEvent.created_at).toLocaleTimeString('th-TH')}</span>
+        </span>`: ''}
         
         <!-- ตัวหมุด (เอฟเฟกต์กระเพื่อม + วงกลม) -->
           <div class="relative flex h-6 w-6 items-center justify-center">
       
-           ${eventstatus == 'active' ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${bgColor}"></span>` : ''}
+           ${activeEvent!=undefined && activeEvent.status == 'active' ? `<span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${bgColor}"></span>` : ''}
           
           <span class="relative inline-flex rounded-full h-4 w-4 ${bgColor} ring-2 ${ringColor} ring-offset-1  shadow-lg"></span>
         </div>
@@ -55,7 +66,7 @@ function MapController({ center }: { center: [number, number] | null }) {
 }
 
 
-export default function Map({ events,focusedLocation }: { events: any[],focusedLocation: [number, number] | null }) {
+export default function Map({ devices, events, focusedLocation }: { devices: any[], events: any[], focusedLocation: [number, number] | null }) {
   // พิกัด ม.เกษตร กำแพงแสน (ตามที่คุณเซ็ตไว้)
   const center: [number, number] = [14.0245, 99.9754];
 
@@ -69,22 +80,26 @@ export default function Map({ events,focusedLocation }: { events: any[],focusedL
         <MapController center={focusedLocation} />
 
         {/* วนลูปวาดหมุดจากฐานข้อมูล */}
-        {events.map((event) => (
-          <Marker
-            key={event.id}
-            position={[event.lat, event.lng]}
+        {devices.map((device) => {
+          const activeEvent = events.find(
+            item => item.node_id === device.node_id && item.status === "active"
+          );
+          return (<Marker
+            key={device.node_id}
+            position={[device.lat, device.lng]}
             // เรียกใช้ Custom Icon ที่เราสร้าง โดยส่งสถานะและรหัสโหนดไปแสดง
-            icon={createCustomIcon(event.event_type, ` ${event.event_type}`,event.created_at,event.status)}
+            // icon={createCustomIcon(device.event_type, ` ${device.event_type}`, device.created_at, device.status)}
+            icon={createCustomIcon(activeEvent)}
           >
-            <Popup className="custom-popup">
+            <Popup className="custom-popup" key={device.node_id}>
               <div className="p-2 text-slate-800">
-                <p className="font-bold text-sm">จุดเฝ้าระวัง: {event.node_id}</p>
-                <p className="text-xs text-red-600 mt-1 font-semibold">{event.event_type}</p>
-                <p className="text-xs text-gray-500 mt-1">เวลา: {new Date(event.created_at).toLocaleString()}</p>
+                <p className="font-bold text-sm">จุดเฝ้าระวัง: {device.node_id}</p>
+                <p className="text-xs text-red-600 mt-1 font-semibold">{device.event_type}</p>
+                <p className="text-xs text-gray-500 mt-1">เวลา: {new Date(device.created_at).toLocaleString()}</p>
               </div>
             </Popup>
-          </Marker>
-        ))}
+          </Marker>)
+        })}
       </MapContainer>
     </div>
   );

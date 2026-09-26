@@ -25,6 +25,18 @@ app.prepare().then(async () => {
   expressApp.post('/api/alert', async (req, res) => {
     try {
       const data = req.body;
+
+      const existing = await db.get(
+        "SELECT id FROM tree_events WHERE node_id = ? AND status = 'active'",
+        [data.node_id]
+      );
+
+      if (existing) {
+        // ถ้ามีอยู่แล้ว ไม่บันทึกซ้ำ
+        return res.status(409).json({ message: "Alert already active for this node" });
+      }
+
+
       const result = await db.run(
         'INSERT INTO tree_events (node_id, event_type, lat, lng, status) VALUES (?, ?, ?, ?, ?)',
         [data.node_id, data.event_type, data.lat, data.lng, 'active']
@@ -34,6 +46,24 @@ app.prepare().then(async () => {
 
       io.emit('new_alert', newEvent);
       res.status(201).json({ success: true, id: newEvent.id });
+    } catch (e) {
+      console.error(e);
+      res.status(400).json({ error: 'Invalid data format' });
+    }
+  });
+  
+  expressApp.post('/api/regist_devices', async (req, res) => {
+    try {
+      const data = req.body;
+      const result = await db.run(
+        'INSERT INTO devices (node_id, lat, lng) VALUES (?, ?, ?)',
+        [data.node_id,data.lat, data.lng]
+      );
+
+      const new_Device= await db.get('SELECT * FROM devices WHERE id = ?', result.lastID);
+
+      io.emit('new_devices', new_Device);
+      res.status(201).json({ success: true, id: new_Device.id });
     } catch (e) {
       console.error(e);
       res.status(400).json({ error: 'Invalid data format' });
@@ -68,6 +98,72 @@ app.prepare().then(async () => {
       res.status(500).json({ error: 'Database error' });
     }
   });
+  expressApp.get('/api/alerts_all', async (req, res) => {
+    try {
+      const activeEvents = await db.all("SELECT * FROM tree_events WHERE status = 'active' ORDER BY created_at DESC");
+      res.status(200).json(activeEvents);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+  
+// expressApp.get('/api/device_alerts', async (req, res) => {
+//   try {
+//     const rows = await db.all(`
+//       SELECT 
+//         devices.node_id,
+//         devices.lat,
+//         devices.lng,
+//         tree_events.id AS event_id,
+//         tree_events.event_type,
+//         tree_events.status,
+//         tree_events.created_at
+//       FROM devices 
+//       LEFT JOIN tree_events ON devices.node_id = tree_events.node_id 
+//       ORDER BY tree_events.created_at DESC
+//     `);
+
+//     // จัดกลุ่มตาม node_id
+//     const devicesMap = {};
+//     rows.forEach(row => {
+//       if (!devicesMap[row.node_id]) {
+//         devicesMap[row.node_id] = {
+//           node_id: row.node_id,
+//           lat: row.lat,
+//           lng: row.lng,
+//           alerts: []
+//         };
+//       }
+//       // ถ้ามีประวัติแจ้งเตือน ให้ดันเข้าอาร์เรย์ alerts
+//       if (row.event_id) {
+//         devicesMap[row.node_id].alerts.push({
+//           id: row.event_id,
+//           event_type: row.event_type,
+//           status: row.status,
+//           created_at: row.created_at
+//         });
+//       }
+//     });
+
+//     res.status(200).json(Object.values(devicesMap));
+//   } catch (e) {
+//     console.error(e);
+//     res.status(500).json({ error: 'Database error' });
+//   }
+// });
+
+  expressApp.get('/api/devices', async (req, res) => {
+    try {
+      const espUsers = await db.all("SELECT * FROM devices");
+      res.status(200).json(espUsers);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+
+
   expressApp.get('/api/nonactive', async (req, res) => {
     try {
       const activeEvents = await db.all("SELECT * FROM tree_events WHERE status != 'active' ORDER BY created_at DESC");
