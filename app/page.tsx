@@ -124,7 +124,7 @@ export default function Dashboard() {
           </div>
           <div className="">
             <p className='font-bold'>ArborGuard At KU</p>
-            <p className="text-xs text-gray-300 font-bold">KAMPHAENG SAEN CAMPUS{isshowcurrentAlerts ? "sss" : ""}</p>
+            <p className="text-xs text-gray-300 font-bold">KAMPHAENG SAEN CAMPUS</p>
           </div>
         </div>
 
@@ -203,11 +203,11 @@ export default function Dashboard() {
                     key={alert.id}
                     onClick={() => setFocusedLocation([alert.lat, alert.lng])}
                     className={`p-4  rounded-xl border-l-4 shadow-md hover:cursor-pointer
-                    ${alert.event_type === 'ต้นไม้ล้ม' ? 'border-red-500 hover:bg-red-200' : 'border-yellow-500 hover:bg-orange-200'}`}
+                    ${alert.event_type === 'tree_falling' ? 'border-red-500 hover:bg-red-200' : 'border-yellow-500 hover:bg-orange-200'}`}
                   >
                     <div className="flex justify-between items-start">
                       <p className={`font-bold`}>
-                        {alert.event_type === 'ต้นไม้ล้ม' ? 'ต้นไม้ล้ม' : ' กิ่งไม้หัก'}
+                        {alert.event_type === 'tree_falling' ? 'tree_falling' : ' branch_breaking'}
                       </p>
                     </div>
                     <p className="text-sm black mt-2">
@@ -216,13 +216,13 @@ export default function Dashboard() {
                     <div className="text-xs  mt-1 flex flex-col">
                       <div className=" flex flex-row gap-2">
                         <p>alert at :</p>
-                        <span>{new Date(alert.created_at).toLocaleDateString('th-TH')}</span>
-                        <span>{new Date(alert.created_at).toLocaleTimeString('th-TH')}</span>
+                        <span>{new Date(alert.created_at+'Z').toLocaleDateString('th-TH')}</span>
+                        <span>{new Date(alert.created_at+'Z').toLocaleTimeString('th-TH')}</span>
                       </div>
                       {alert.resolved_at != null ? <div className=" flex flex-row gap-2">
                         <p>resolved at :</p>
-                        <span>{new Date(alert.resolved_at).toLocaleDateString('th-TH')}</span>
-                        <span>{new Date(alert.resolved_at).toLocaleTimeString('th-TH')}</span>
+                        <span>{new Date(alert.resolved_at+'Z').toLocaleDateString('th-TH')}</span>
+                        <span>{new Date(alert.resolved_at+'Z').toLocaleTimeString('th-TH')}</span>
                       </div> : ''}
                     </div>
                   </div>

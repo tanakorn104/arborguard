@@ -1,0 +1,27 @@
+services:
+  nextjs-app:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    image: <ชื่อ_IMAGE_ที่คุณตั้งตอน_docker_save>
+    container_name: nextjs-app
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    networks:
+      - app-network
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    networks:
+      - app-network
+    depends_on:
+      - nextjs-app
+
+networks:
+  app-network:
+    driver: bridge

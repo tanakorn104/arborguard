@@ -17,9 +17,9 @@ const createCustomIcon = (activeEvent:any) => {
     ringColor = 'ring-green-500';
 
   }else{
-    bgColor = activeEvent.event_type === 'ต้นไม้ล้ม' ? 'bg-red-500' : 'bg-yellow-500';
-    borderColor = activeEvent.event_type === 'ต้นไม้ล้ม' ? 'border-red-500' : 'border-yellow-500';
-    ringColor = activeEvent.event_type === 'ต้นไม้ล้ม' ? 'ring-red-500' : 'ring-yellow-500';
+    bgColor = activeEvent.event_type === 'tree_falling' ? 'bg-red-500' : 'bg-yellow-500';
+    borderColor = activeEvent.event_type === 'tree_falling' ? 'border-red-500' : 'border-yellow-500';
+    ringColor = activeEvent.event_type === 'tree_falling' ? 'ring-red-500' : 'ring-yellow-500';
     
   }
 
@@ -33,8 +33,8 @@ const createCustomIcon = (activeEvent:any) => {
         <!-- ตัวอักษรข้างหมุด (Label) -->
         ${activeEvent!=undefined &&activeEvent.status == 'active' ? `<span class="absolute left-8 px-5 py-2 rounded-full bg-white text-black text-xs  whitespace-nowrap shadow-sm border ${borderColor}">
        
-            <span>${new Date(activeEvent.created_at).toLocaleDateString('th-TH')}</span>
-                      <span>${new Date(activeEvent.created_at).toLocaleTimeString('th-TH')}</span>
+            <span>${new Date(activeEvent.created_at+'Z').toLocaleDateString('th-TH')}</span>
+                      <span>${new Date(activeEvent.created_at+'Z').toLocaleTimeString('th-TH')}</span>
         </span>`: ''}
         
         <!-- ตัวหมุด (เอฟเฟกต์กระเพื่อม + วงกลม) -->
@@ -95,7 +95,7 @@ export default function Map({ devices, events, focusedLocation }: { devices: any
               <div className="p-2 text-slate-800">
                 <p className="font-bold text-sm">จุดเฝ้าระวัง: {device.node_id}</p>
                 <p className="text-xs text-red-600 mt-1 font-semibold">{device.event_type}</p>
-                <p className="text-xs text-gray-500 mt-1">เวลา: {new Date(device.created_at).toLocaleString()}</p>
+                <p className="text-xs text-gray-500 mt-1">เวลา: {new Date(device.created_at+'Z').toLocaleString()}</p>
               </div>
             </Popup>
           </Marker>)

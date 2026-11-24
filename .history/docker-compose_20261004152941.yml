@@ -1,0 +1,26 @@
+services:
+  nextjs-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nextjs-app
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    networks:
+      - app-network
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token eyJhIjoiMmUzZThkODE5MzU1YzY3NGI2MGQ5Zjg0ZTk5ZTM4MTMiLCJ0IjoiYTFlOWYzMzMtZTI5My00ODE5LWEzZDctNzhmYjc5YmNmMWY0IiwicyI6IllUbGhNalEzTUdFdFpUUTFZUzAwTUdSa0xXRmpPVGN0T0RkaU5qTTBOR1prWTJSaSJ9
+    networks:
+      - app-network
+    depends_on:
+      - nextjs-app
+
+networks:
+  app-network:
+    driver: bridge
